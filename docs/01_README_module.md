@@ -368,7 +368,7 @@ This approach is known as parallel optics. Instead of increasing speed on a sing
 
 ## Breakout Cables
 
-[Port breakout](https://github.com/ManiAm/net-lab-switch-serdes/blob/master/docs/02_README_serdes.md#port-breakout) splits a single high-speed port into multiple lower-speed logical interfaces by remapping the ASIC's SerDes lanes. From a cabling perspective, breakout determines which cables and connectors are needed to physically fan out the port. Whether the transceiver must be changed depends on the cabling architecture in use.
+[Port breakout](https://github.com/ManiAm/net-lab-switch-serdes/blob/master/docs/02_README_serdes.md#ports-and-breakout) splits a single high-speed port into multiple lower-speed logical interfaces by remapping the ASIC's SerDes lanes. From a cabling perspective, breakout determines which cables and connectors are needed to physically fan out the port. Whether the transceiver must be changed depends on the cabling architecture in use.
 
 Common breakout configurations and their typical cabling:
 
