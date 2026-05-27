@@ -43,17 +43,42 @@ class EepromReader:
             raise EepromReadError(f"Cannot open {self.path}: {e}") from e
 
     def read(self, offset: int, length: int) -> bytes:
-        with self._open(write=False) as f:
-            f.seek(offset)
-            data = f.read(length)
+        try:
+            with self._open(write=False) as f:
+                f.seek(offset)
+                data = f.read(length)
+        except TimeoutError as e:
+            raise EepromReadError(
+                f"I2C read timed out on {self.path} (offset {offset}, len {length}). "
+                "Usually: no transceiver in this cage, module not powered, or bus held by xcvrd. "
+                "Check: show interfaces transceiver presence — try a port with a module, or "
+                "sudo, or stop xcvrd (docker exec pmon supervisorctl stop xcvrd)."
+            ) from e
+        except OSError as e:
+            if getattr(e, "errno", None) in (110, 121):  # ETIMEDOUT, EREMOTEIO
+                raise EepromReadError(
+                    f"I2C read failed on {self.path}: {e}. "
+                    "No response from EEPROM — empty port or bus not accessible."
+                ) from e
+            raise EepromReadError(f"Read failed on {self.path}: {e}") from e
         if len(data) != length:
             raise EepromReadError(f"Short read at offset {offset}: got {len(data)} bytes")
         return data
 
     def write_byte(self, offset: int, value: int) -> None:
-        with self._open(write=True) as f:
-            f.seek(offset)
-            f.write(bytes([value & 0xFF]))
+        try:
+            with self._open(write=True) as f:
+                f.seek(offset)
+                f.write(bytes([value & 0xFF]))
+        except TimeoutError as e:
+            raise EepromReadError(
+                f"I2C write timed out on {self.path} (offset {offset}). "
+                "Page select needs write access; try sudo or stop xcvrd."
+            ) from e
+        except OSError as e:
+            if getattr(e, "errno", None) in (110, 121):
+                raise EepromReadError(f"I2C write failed on {self.path}: {e}") from e
+            raise EepromReadError(f"Write failed on {self.path}: {e}") from e
 
     def read_lower_page(self) -> bytes:
         return self.read(0, 128)

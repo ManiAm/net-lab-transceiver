@@ -111,11 +111,19 @@ Examples:
 
     try:
         raw = reader.read_all_pages(pages=_build_page_list(args.no_page1, args.no_page2))
-    except EepromReadError as e:
+    except (EepromReadError, TimeoutError, OSError) as e:
+        if not isinstance(e, EepromReadError):
+            e = EepromReadError(str(e))
         print(f"Read error: {e}", file=sys.stderr)
+        if resolved.interface and resolved.interface.startswith("Ethernet"):
+            print(
+                f"  Port {resolved.interface} maps to {resolved.meta.get('eeprom_path', resolved.eeprom_path)}",
+                file=sys.stderr,
+            )
         msg = str(e)
-        if "SDK" not in msg and "not present" not in msg and "does not exist" not in msg:
-            print("Tip: upper pages need write access for page select — try sudo", file=sys.stderr)
+        if "timed out" not in msg.lower() and "SDK" not in msg and "not present" not in msg:
+            if "does not exist" not in msg:
+                print("Tip: upper pages need write access for page select — try sudo", file=sys.stderr)
         return 1
 
     if args.raw:
