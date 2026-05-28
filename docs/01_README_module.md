@@ -1,4 +1,3 @@
-
 # The Pluggable Transceiver Model
 
 Network switches are expensive, long-term investments. If a switch were built with permanently attached cables or a fixed media type, it would be incredibly inflexible. To solve this, the networking industry uses a pluggable architecture consisting of three distinct layers.
@@ -7,7 +6,7 @@ Network switches are expensive, long-term investments. If a switch were built wi
 
 - **The Transceiver (The Module)**: This is the hot-swappable metal module that you slide into the port. It is the "translator" of the system. It takes the raw, high-speed electrical signals from the switch and converts them into a format that can travel over your chosen cable. The transceiver dictates the rules of the connection. It determines the speed (e.g., 10G, 100G, 400G), the maximum distance (from 3 meters to 80 kilometers), and the physical medium (lasers for light, or drivers for copper).
 
-- **The Cable**: This is the physical wire or fiber that plugs into the outside of the transceiver. It is simply the physical highway the signal travels across to reach the next device. It can be a fiber optic cable, a direct-attach copper cable (DAC), or standard Ethernet cabling.
+- **The Cable**: This is the physical wire or fiber that plugs into the outside of the transceiver. It is simply the physical medium the signal travels across to reach the next device. It can be a fiber optic patch cable, a direct-attach copper cable (DAC), an active optical cable (AOC), or standard twisted-pair Ethernet cabling (Base-T).
 
 By separating the system into these three layers, a network engineer can buy one switch and use it for almost any scenario. A single switch can simultaneously connect to a server in the same rack using cheap copper, and a data center 10 miles away using long-range fiber optics, simply by mixing and matching modules and cables.
 
@@ -18,9 +17,9 @@ By separating the system into these three layers, a network engineer can buy one
 
 Now that we understand the pluggable model, we can zoom in on the Transceiver Module itself. Because it acts as a translator, it inherently has two distinct "faces" or interfaces.
 
-- **The Host Side (The Electrical Side)**: This is the back end of the transceiver that faces inward, plugging directly into the switch's Port (Cage). It interacts exclusively with the switch's internal hardware. It receives power and connects directly to the ASIC's electrical SerDes lanes via traces printed on the switch's internal circuit board. The host side is strictly defined by its form factor. Whether the module is designed to shoot lasers 40 kilometers or send electrical pulses 3 meters, the physical host-side connector plugging into the switch looks and behaves exactly the same.
+- **The Host Side (The Electrical Side)**: This is the back end of the transceiver that faces inward, plugging directly into the switch's Port (Cage). It interacts exclusively with the switch's internal hardware. It receives power and connects directly to the ASIC's electrical SerDes lanes via traces printed on the switch's internal circuit board. The host side is strictly defined by its form factor. Whether the module transmits light over 40 kilometers of fiber or drives electrical signals across 3 meters of copper, the physical host-side connector plugging into the switch looks and behaves exactly the same.
 
-- **The Media Side (The Line Side)**: This is the front face of the transceiver that faces outward toward the rest of the network. It connects to the external Cable. This is where the actual translation happens. If it is an optical module, this side houses tiny lasers and light detectors. If it is a copper module, it houses an RJ45 jack and electrical conditioning circuits.
+- **The Media Side (The Line Side)**: This is the front face of the transceiver that faces outward toward the rest of the network. It connects to the external Cable. This is where the actual translation happens. If it is an optical module, this side houses laser diodes and photodetectors. If it is a copper module, it houses an RJ45 jack and electrical conditioning circuits.
 
 <img src="../pics/host-vs-media.png" alt="segment" width="1000">
 
@@ -39,7 +38,7 @@ The `QSFP` family aggregates four electrical lanes in a larger mechanical envelo
 
 For even higher densities, `OSFP` modules provide eight electrical lanes and are commonly used for 400G and 800G applications. The `OSFP-XD` (eXtra Density) variant targets 1.6T by running eight lanes at 200G PAM4. OSFP-XD maintains the same faceplate width as OSFP but uses a deeper housing to accommodate the increased power and thermal requirements. It is backward compatible with standard OSFP modules.
 
-Each generation doubles the per-lane data rate, which means the same total speed can be achieved with fewer lanes (simpler optics, fewer fibers), or a higher total speed can be achieved with the same number of lanes. For example, 400G can be delivered by QSFP-DD with 8 × 50G lanes (current generation) or by QSFP112 with just 4 × 100G lanes (next generation, half the lanes).
+From SFP+ onward, each generation approximately doubles the per-lane signaling rate (10G → 25G → 50G → 100G → 200G). This means the same total speed can be achieved with fewer lanes (simpler optics, fewer fibers), or a higher total speed can be achieved with the same number of lanes. For example, 400G can be delivered by QSFP-DD with 8 × 50G lanes or by QSFP112 with just 4 × 100G lanes (half the lanes, next generation signaling).
 
 | Form Factor  | Electrical Lanes (Host Side) | Typical Per-Lane Signaling | Common Total Speeds | Status            |
 | ------------ | ---------------------------- | -------------------------- | ------------------- | ----------------- |
@@ -132,135 +131,16 @@ After the module is powered and recognized, network traffic can flow.
 
     GND pins are interleaved between every signal group. These ground pads provide controlled return paths for high-frequency currents, maintain trace impedance, minimize crosstalk between adjacent lanes, and reduce electromagnetic interference. Without proper return paths, [eye diagrams](https://github.com/ManiAm/net-lab-switch-serdes/blob/master/docs/03_signal_basics.md#eye-diagram) would degrade and bit error rates would increase.
 
-- **Media side:** The module converts between the host electrical domain and the external optical medium. For an optical QSFP28, the media side contains a Quad Optical Transmitter (four laser sources) and a Quad Optical Receiver (four photodetectors), plus the fiber connector (MPO for parallel optics such as SR4, or duplex LC for wavelength-multiplexed optics such as LR4).
+- **Media side:** The module converts between the host electrical domain and the external optical medium. For an optical QSFP28, the media side contains a Quad Optical Transmitter (four laser sources) and a Quad Optical Receiver (four photodetectors). The connector type depends on the optical architecture: parallel-lane variants use an MPO connector, while wavelength-multiplexed variants use a duplex LC connector (see [Optical Transceiver Naming](#optical-transceiver-naming) for the general rule).
 
 
-## Fiber Mode
+## Media-Side Cabling
 
-Fiber mode refers to how light propagates through the glass core of a fiber optic cable. The term "mode" describes a distinct spatial path that light can follow within the core. The number of modes a fiber supports is determined primarily by the **core diameter** and the **wavelength** of light being transmitted. In practical networking, there are two categories: **Multi-Mode Fiber** (MMF) and **Single-Mode Fiber** (SMF).
-
-<img src="../pics/Singlemode-vs-Multimode-fiber-core.png" alt="segment" width="600">
-
-### Multi-Mode Fiber (MMF)
-
-Multi-Mode Fiber has a large core diameter, typically 50 or 62.5 µm. The wider core allows multiple light paths, or modes, to propagate simultaneously. Each mode reflects off the internal boundaries of the core at a slightly different angle, travels a slightly different total distance, and arrives at the receiver at a slightly different time. This temporal spreading of optical pulses is called **modal dispersion**. Because modal dispersion worsens with distance, MMF is limited to short-reach applications.
-
-MMF operates at 850 nm using inexpensive **VCSELs** (Vertical-Cavity Surface-Emitting Lasers). The combination of low-cost optics and straightforward fiber termination makes MMF the standard choice for server-to-switch and rack-to-rack connections inside data centers. The exact reach depends on the fiber grade — specifically, its **modal bandwidth**, which quantifies how well the fiber's refractive index profile controls modal dispersion at a given wavelength. Higher modal bandwidth means less pulse spreading, enabling higher data rates over longer distances.
-
-Multimode fiber is categorized into grades defined by ISO/IEC 11801:
-
-| Grade    | Core (µm) | Modal Bandwidth (MHz·km @ 850 nm) | 100G SR4 Reach | Notes                                     |
-| -------- | --------- | --------------------------------- | -------------- | ----------------------------------------- |
-| **OM1**  | 62.5      | 200                               | Not supported  | Legacy, LED-optimized                     |
-| **OM2**  | 50        | 500                               | Not supported  | Legacy, LED-optimized                     |
-| **OM3**  | 50        | 2000                              | 70 m           | Laser-optimized (VCSEL)                   |
-| **OM4**  | 50        | 4700                              | 100 m          | Laser-optimized, higher bandwidth         |
-| **OM5**  | 50        | 4700 (+ wideband)                 | 100 m          | Wideband, supports SWDM wavelengths       |
-
-OM1 and OM2 are legacy grades designed for LED-based systems and cannot support modern high-speed parallel optics. OM3 was the first grade optimized for 850 nm VCSEL lasers and remains widely deployed. OM4 improves on OM3 with higher modal bandwidth, extending 100G SR4 reach from 70 m to 100 m. OM5 adds support for **Short Wavelength Division Multiplexing (SWDM)**, which uses multiple wavelengths in the 850–953 nm range to increase bandwidth density over a single fiber pair; for standard parallel optics, its reach is identical to OM4.
-
-For new data center deployments, OM4 is the most common choice. It provides sufficient reach for intra-building connections and is widely available at competitive pricing.
-
-### Single-Mode Fiber (SMF)
-
-Single-Mode Fiber has a very small core diameter of approximately 9 µm. Because the core is so narrow, only one spatial mode can propagate. This eliminates modal dispersion entirely, allowing the signal to maintain its integrity over very long distances.
-
-SMF operates at wavelengths of 1310 nm or 1550 nm. These longer wavelengths experience lower attenuation in glass, enabling transmission over 10 km, 40 km, 80 km, or farther with appropriate optics. SMF is used for campus backbones, metropolitan networks, and inter-data-center links. The tradeoff is that single-mode optics require more precise laser sources and are generally more expensive than multimode solutions for short distances.
-
-Because modal dispersion is absent, the key performance differentiator between SMF grades is **attenuation** — the rate at which optical power decreases per kilometer, measured in dB/km. Lower attenuation allows longer transmission distances for a given optical power budget.
-
-Single-mode fiber is categorized into grades defined by ISO/IEC 11801:
-
-| Grade    | Core (µm) | Attenuation (dB/km @ 1310 nm) | Attenuation (dB/km @ 1550 nm) | Cable Construction                   | Notes |
-| -------- | --------- | ----------------------------- | ----------------------------- | ------------------------------------ | ----- |
-| **OS1**  | 9         | ≤ 1.0                         | ≤ 1.0                         | Tight-buffered (indoor)              | Legacy, suitable for short indoor runs |
-| **OS2**  | 9         | ≤ 0.4                         | ≤ 0.4                         | Loose-tube or blown (indoor/outdoor) | Current standard for all new deployments |
-
-Both grades use the same 9/125 µm core and cladding. The difference lies in cable construction and resulting attenuation: OS1 uses tight-buffered construction intended for indoor use, while OS2 uses loose-tube or blown-fiber construction suitable for both indoor and outdoor installations. OS2's lower attenuation (less than half of OS1) makes it the preferred choice for all new installations. In practice, the transceiver optics — not the fiber grade — determine the maximum link distance for single-mode deployments.
-
-For new installations, OS2 is the universal default.
-
-### Jacket Color Coding
-
-Fiber cable jackets are color-coded according to TIA-598-D to provide immediate visual identification of the fiber mode and grade without reading labels. The standard assignments are:
-
-| Jacket Color   | Fiber Grade        |
-| -------------- | ------------------ |
-| **Orange**     | OM1 / OM2          |
-| **Aqua**       | OM3 / OM4          |
-| **Violet**     | OM4 (newer convention to distinguish from OM3) |
-| **Lime Green** | OM5                |
-| **Yellow**     | OS1 / OS2          |
-
-<img src="../pics/jacket-color.png" alt="segment" width="900">
-
-In practice, OM4 cables are sold in either aqua or violet depending on the manufacturer and era. Both are correct for OM4. Some vendors use non-standard colors (such as green or magenta) for marketing differentiation; these cables still contain the labeled fiber grade regardless of jacket color.
-
-
-## Fiber Connectors
-
-Two connector types dominate pluggable optics deployments: LC and MPO:
-
-- **LC** (Lucent Connector): A small-form-factor connector that holds one fiber per ferrule. A single LC ferrule carries one fiber — this is a **simplex** connection. For bidirectional communication (one fiber to transmit, one to receive), two LC ferrules are paired together with a clip to form a **duplex LC** assembly. Duplex LC is by far the most common configuration. LC is used for:
-    - Single-lane multimode links (10GBASE-SR, 25GBASE-SR) with SFP+ or SFP28 transceivers
-    - Wavelength-multiplexed links that combine multiple lanes onto one fiber pair (100GBASE-LR4, 100GBASE-CWDM4, 400G-ZR)
-    - Any single-mode point-to-point link
-
-- **MPO** (Multi-fiber Push On): A connector that terminates multiple fibers in a single rectangular ferrule — typically 8, 12, or 24 fibers. MPO is used with **parallel optics** modules that transmit each lane on a dedicated fiber (such as 100GBASE-SR4, which requires 8 fibers: 4 TX + 4 RX, housed in a standard 12-fiber ferrule). MPO cabling keeps the connector count manageable even when the total fiber count is high. The terms MPO and MTP are often used interchangeably; MTP is a trademarked high-precision variant of the MPO standard manufactured by US Conec.
-
-<img src="../pics/connector.png" alt="segment" width="350">
-
-The connector type on a fiber cable is determined by how the transceiver organizes its optical lanes on the media side. A transceiver that sends each lane on a separate fiber requires a multi-fiber connector. A transceiver that uses a single fiber pair — either because it has only one lane, or because it multiplexes multiple lanes onto different wavelengths over the same fiber — requires a simple two-fiber connector.
-
-### MPO Gender
-
-MPO connectors exist in two genders:
-
-- **Male (pinned)**: Contains two guide pins that protrude from the ferrule face. Typically found on transceiver module ports.
-- **Female (pinless)**: Has receptacles for the guide pins. Typically used on patch cables and trunk cables.
-
-When connecting two transceivers (both male), the patch cable between them must be **female-to-female**. This is the standard configuration for direct device-to-device connections.
-
-### MPO Polarity
-
-Because MPO connectors carry multiple fibers, the transmit fibers on one end must align with the receive fibers on the other end. Three polarity methods are defined by TIA-568:
-
-- **Type A (straight-through)**: Fiber positions are maintained 1-to-1 from one end to the other. The key orientation is the same on both ends (key up to key up). Type A cables require a duplex flip at one end of the link (typically in the patch panel or adapter) to achieve TX-to-RX alignment.
-
-- **Type B (crossover)**: The fiber ribbon is flipped at one end, so fiber position 1 maps to position 12, position 2 to position 11, and so on. The key orientation is reversed (key up to key down). This automatically crosses TX and RX, making Type B the standard choice for direct transceiver-to-transceiver connections without intermediate patch panels.
-
-- **Type C (pair-reversed)**: Each adjacent fiber pair is individually crossed. This is less common and primarily used in specific structured cabling designs.
-
-## Fiber Cable Examples
-
-The following table compares four representative fiber patch cables, each illustrating a different combination of fiber mode, grade, connector type, and jacket color. Every field in this table corresponds to a concept covered in the preceding sections.
-
-| Field            | FiberCablesDirect OS2 LC | CableWholesale OM3 LC | FiberCablesDirect OM4 LC | Elfcam MPO OM4 |
-|------------------|--------------------------|-----------------------|--------------------------|----------------|
-| Fiber mode       | Single-mode (SMF)        | Multimode (MMF)       | Multimode (MMF)          | Multimode (MMF) |
-| Fiber grade      | OS2 (9/125 µm)           | OM3 (50/125 µm)       | OM4 (50/125 µm)          | OM4 (50/125 µm) |
-| Connector        | LC                       | LC                    | LC                       | MPO/MTP |
-| Gender           | N/A                      | N/A                   | N/A                      | Female to Female |
-| Polarity         | N/A                      | N/A                   | N/A                      | Type B (crossover) |
-| Fiber count      | 2                        | 2                     | 2                        | 12 |
-| Duplex / Simplex | Duplex                   | Duplex                | Duplex                   | N/A (parallel) |
-| Polish           | UPC                      | UPC                   | UPC                      | UPC |
-| Jacket rating    | OFNR (riser)             | OFNR (riser)          | OFNR (riser)             | LSZH |
-| Jacket color     | Yellow                   | Aqua                  | Violet                   | Violet |
-| Length           | 5 m                      | 1 m                   | 1 m                      | 1 m |
-
-Key observations:
-
-- The three LC cables all show Gender as "N/A" and Polarity as "N/A" because LC is genderless and duplex LC is inherently crossed (the clip swaps fiber positions between ends).
-- The MPO cable requires explicit gender (female-to-female for device-to-device) and polarity (Type B crossover for direct TX-to-RX alignment).
-- For a simple lab setup connecting two SR4 transceivers on the same switch, a **Type B, female-to-female, 12-fiber OM4** MPO cable is the correct choice.
-
-
-## Copper vs Optical Options
+The media side of a transceiver connects to the external network through a cable or integrated assembly. Four cabling architectures are common in practice, each offering a different balance of flexibility, cost, reach, and serviceability.
 
 ### Modular Optical
 
-Modular optical connectivity separates the transceiver from the fiber cable. The switch port provides a high-speed electrical interface, a pluggable optical transceiver converts that signal to light, and a removable fiber patch cable connects two devices. Because the optics and the cable are independent components, each can be selected based on distance and application. Refer to the optical transceiver reach standards section for more details.
+Modular optical connectivity separates the transceiver from the fiber cable. The switch port provides a high-speed electrical interface, a pluggable optical transceiver converts that signal to light, and a removable fiber patch cable connects two devices. Because the optics and the cable are independent components, each can be selected based on distance and application. The [Optical Transceiver Reach Standards](#optical-transceiver-reach-standards) section defines the standard distance classes available.
 
 This model provides maximum flexibility and serviceability. If a fiber cable is damaged, only the cable is replaced. If distance requirements change, the transceiver can be swapped without replacing the switch. Optical transceivers also support Digital Optical Monitoring (DOM), which provides real-time telemetry including TX/RX optical power (in dBm), laser bias current, module temperature, and supply voltage. This data is accessible through the module's management interface and is invaluable for link troubleshooting and preventive maintenance.
 
@@ -289,6 +169,7 @@ A Base-T solution uses a pluggable transceiver with an RJ45 interface that fits 
 While Base-T provides compatibility with structured building cabling and legacy Ethernet infrastructure, it generally consumes more power and introduces higher latency than DAC or optical solutions. For high-density, high-speed data center environments, DAC or optical modules are typically preferred. Base-T is most suitable when integration with existing copper infrastructure is required or when cost-effective short- to medium-distance links are sufficient.
 
 <img src="../pics/transceiver_base_t.jpg" alt="segment" width="200">
+
 
 ## Optical Transceiver Reach Standards
 
@@ -360,11 +241,11 @@ For example, `400G-DR4` means:
 - DR → Data Center Reach (single-mode fiber, ~500 meters)
 - 4 → Four optical lanes
 
-The lane count of an optical module determines how many independent optical channels are used to carry the total bandwidth, and this directly impacts how many physical fibers are required. In the simplest case, when the lane count is 1 (or not explicitly shown, such as in `100G-LR`), the module operates as a duplex link. It uses two fibers: one dedicated to transmit (TX) and one dedicated to receive (RX). These links typically use a duplex LC connector, which is the standard two-fiber interface widely deployed in enterprise and campus networks.
+The lane count determines how many independent optical channels carry the total bandwidth, and this directly determines the cabling architecture (see [Bandwidth Scaling](03_README_fiber.md#bandwidth-scaling) for the underlying concepts):
 
-When the lane count is higher such as 4 (DR4) or 8 (DR8), the module uses multiple parallel optical channels. Each lane requires its own transmit and receive path. As a result, a 4-lane module uses 8 fibers (4 TX + 4 RX), and an 8-lane module uses 16 fibers (8 TX + 8 RX). These configurations require a multi-fiber MPO connector, which supports higher fiber counts within a single physical interface.
+- **Lane count = 1** (or not shown, e.g., `100G-LR`): The module uses wavelength multiplexing to fit all channels onto a single fiber pair. Cabling requires only two fibers and a duplex LC connector.
+- **Lane count > 1** (e.g., DR4, SR8): The module uses parallel optics — each lane occupies a dedicated fiber. A 4-lane module requires 8 fibers (4 TX + 4 RX), an 8-lane module requires 16 fibers (8 TX + 8 RX), and these are terminated with a multi-fiber MPO connector.
 
-This approach is known as parallel optics. Instead of increasing speed on a single optical stream, the total bandwidth is achieved by transmitting multiple lower-speed streams simultaneously. While this enables very high aggregate data rates, it increases cabling complexity and fiber density. Deploying parallel optics therefore requires structured multi-fiber cabling systems and careful planning of patch panels and trunk infrastructure to maintain scalability and manageability.
 
 ## Breakout Cables
 
@@ -414,7 +295,6 @@ Loopback modules are available for all standard form factors including SFP+, SFP
 - **Systematic port validation**: Testing all ports on a switch without needing a matching number of cables and remote devices.
 
 
-
 ## Optical Integration Architectures
 
 The fundamental challenge in high-speed switch design is the physical distance between the ASIC and the optical transceiver. Electrical signals degrade rapidly at modern lane rates (50–200 Gb/s) as they travel across PCB traces, vias, and connectors. The longer this electrical path, the more signal integrity is lost to attenuation, reflections, and crosstalk.
@@ -437,7 +317,7 @@ Near-Package Optics (NPO) is the conventional pluggable architecture used in mos
 
     On the receive side, incoming light from the fiber enters the optical front-end, where a photodetector converts optical energy into a very small electrical current. That current is amplified by a Transimpedance Amplifier (`TIA`), which converts the current into a usable voltage signal. The `DSP` then performs equalization, noise filtering, and clock data recovery to reconstruct a clean digital bitstream. Finally, the recovered signal is passed through the `SerDes` and delivered back to the `ASIC`.
 
-Here is another view:
+The following diagram shows the signal path in more detail:
 
 <img src="../pics/NPO_zoom.png" alt="segment" width="400">
 
