@@ -1,7 +1,7 @@
 
 # Transceiver Management Interface
 
-As established in the [previous document](01_README_module.md), a pluggable transceiver connects to its host through three distinct interfaces: power, data, and management. While the power interface energizes the module and the data interface carries high-speed network traffic over SerDes lanes, the management interface allows the host to identify, monitor, and control the module over a low-speed serial bus. Because this bus is physically separate from the data lanes, management is independent of traffic flow — the host can discover and configure a module before enabling traffic, and continue monitoring health even if the data path is down.
+As established in the [previous document](01_README_module.md), a pluggable transceiver connects to its host through three distinct interfaces: power, data, and management. While the power interface energizes the module and the data interface carries high-speed network traffic over SerDes lanes, the management interface allows the host to identify, monitor, and control the module over a low-speed serial bus. Because this bus is physically separate from the data lanes, the host can discover and configure a module before enabling traffic, and continue monitoring health even if the data path is down.
 
 Without a management interface, a transceiver would be a black box. The host would have no way to determine the module's vendor, speed capabilities, or media type. It could not monitor operating temperatures, detect a failing laser, or disable a transmitter. The management interface transforms a pluggable module from a passive electrical-to-optical converter into an intelligent device that the host can discover, supervise, and configure through software.
 
@@ -24,36 +24,16 @@ Over the last two decades, the transceiver management interface underwent two pa
 
 Despite these internal changes, the host has always used the same physical bus: I²C (SDA/SCL), located on the management pins described in the [QSFP28 Transceiver Interface](./01_README_module.md#qsfp28-transceiver-interface) section. Network Operating Systems and diagnostic tools still refer to reading this data as an "EEPROM read" because the interface emulates a memory map even when a modern MCU is responding.
 
+The earliest pluggable modules were simple optical assemblies with minimal configurability. Their management interface, defined by INF-8074, required only a passive EEPROM at I²C address `A0h`. The host read this fixed address to retrieve factory-programmed static data such as vendor name and serial number. No processing logic existed between the host and the data.
+
+As data rates increased and modules grew more complex, the industry developed successive specifications — each addressing the limitations of its predecessor. The following table summarizes this progression. Each specification is covered in detail in the subsequent sections.
+
 | Specification  | Era   | Typical Form Factors  | Key Advancement |
 |----------------|-------|-----------------------|-----------------|
 | MSA / INF-8074 | ~2000 | SFP                   | Static identity only (`A0h` EEPROM) |
 | SFF-8472       | ~2007 | SFP, SFP+, SFP28      | Digital Optical Monitoring via second address (`A2h`) |
 | SFF-8636       | ~2013 | QSFP+, QSFP28         | Multi-lane paged register map with per-lane control |
 | CMIS           | ~2017 | QSFP-DD, OSFP, SFP-DD | Firmware state machines, application selection, CDB |
-
-### MSA / INF-8074: Identity Only
-
-The earliest pluggable modules were simple optical assemblies with minimal configurability. Their management interface, defined by INF-8074, required only a passive EEPROM at I²C address `A0h`. The host read this fixed address to retrieve factory-programmed static data such as vendor name and serial number. No processing logic existed between the host and the data.
-
-*Example:* The [Cisco GLC-SX-MM](https://www.telquestintl.com/site/Product%20Manuals/Cisco%20GLC-SX-MM%20data%20sheet.pdf) — a legacy 1G short-reach optic that acts purely as a passive EEPROM, answering only at `A0h` with no diagnostic monitoring.
-
-### SFF-8472: Digital Optical Monitoring
-
-As optics became more sophisticated, network operators needed real-time health monitoring. However, changing the original `A0h` memory map would break backward compatibility. SFF-8472 solved this by adding a second I²C address (`A2h`) dedicated to Digital Diagnostic Monitoring (DDM/DOM). Modules began incorporating small controllers to sample sensors and populate this new address space.
-
-*Example:* The Cisco SFP-10G-SR — a 10G short-reach optic with internal monitoring hardware that provides live temperature, bias current, and optical power readings through the `A2h` address.
-
-### SFF-8636: Multi-Lane Control
-
-The advent of 40G/100G QSFP modules introduced four host lanes, per-lane TX disable, and paged memory. SFF-8636 standardized a new register layout using a single I²C address with page-select, consolidating identity, diagnostics, and control into one address space.
-
-*Example:* The Cisco QSFP-100G-SR4-S — a 100G optic driving four parallel lanes (4×25G) with an internal MCU that exposes per-lane diagnostics and independent transmitter control.
-
-### CMIS: Firmware-Centric Management
-
-With 400G/800G modules came eight host lanes, complex DSPs, multiple operating modes, and field-upgradable firmware. CMIS assumes the presence of an MCU running firmware and defines banked memory, formal state machines, and standardized initialization sequences.
-
-*Example:* The Cisco QDD-400G-DR4-S (QSFP-DD) — a 400G optic that runs live firmware, uses state machines to initialize high-power components, and negotiates operational modes with the host.
 
 
 ---
@@ -71,7 +51,9 @@ With 400G/800G modules came eight host lanes, complex DSPs, multiple operating m
 | SFP+        | 10G               |
 | SFP28       | 25G               |
 
-SFF-8472 is the management interface standard for single-lane SFP-family transceivers. It extends the original MSA/INF-8074 baseline by adding a second I²C address (`A2h`) dedicated to real-time diagnostics, while preserving legacy identification data at the original address (`A0h`). This dual-address design introduced live telemetry without modifying the existing memory layout.
+SFF-8472 is the management interface standard for single-lane SFP-family transceivers. It extends the INF-8074 baseline by introducing a second I²C address (`A2h`) dedicated to **Digital Diagnostic Monitoring** (DDM/DOM). Because modifying the original `A0h` layout would break backward compatibility with existing systems, SFF-8472 preserves the identity data at `A0h` unchanged and places all real-time health telemetry at the new `A2h` address.
+
+*Example:* A legacy 1G optic such as the [Cisco GLC-SX-MM](https://www.telquestintl.com/site/Product%20Manuals/Cisco%20GLC-SX-MM%20data%20sheet.pdf) responds only at `A0h` (INF-8074 baseline). A modern 10G optic such as the Cisco SFP-10G-SR responds at both `A0h` and `A2h`, providing live temperature, bias current, and optical power readings through the additional address.
 
 ### Memory Model
 
@@ -169,7 +151,9 @@ These constraints drove the development of SFF-8636.
 | QSFP28      | 100G              |
 | Some QSFP56 | 200G              |
 
-SFF-8636 is the management interface standard for multi-lane QSFP-family transceivers. Where SFF-8472 used two I²C addresses for a single-lane module, SFF-8636 consolidates identification, diagnostics, and control into a single I²C address (`A0h`) with a **page-based** memory model. This redesign was necessary because QSFP modules have four electrical lanes, each requiring independent monitoring and control — data that could not fit within SFF-8472's flat 512-byte layout.
+The advent of 40G/100G QSFP modules introduced four electrical host lanes, each requiring independent monitoring and control. This per-lane data could not fit within SFF-8472's flat 512-byte layout, nor could its dual-address scheme scale. SFF-8636 redesigned the management interface to use a single I²C address (`A0h`) with a **page-based** memory model, consolidating identification, diagnostics, and control into one address space with significantly more capacity.
+
+*Example:* The Cisco QSFP-100G-SR4-S — a 100G optic driving four parallel lanes (4×25G) with an internal MCU that exposes per-lane diagnostics and independent transmitter control.
 
 ### Memory Model
 
@@ -273,7 +257,7 @@ Upper Page 00h contains factory-programmed static data with fields for multi-lan
 | 137      | Fibre Channel Transmission Media     | Media type codes for Fibre Channel. |
 | 138      | Fibre Channel Speed                  | Supported FC data rates. |
 | 139      | Encoding                             | Line coding (e.g., NRZ, PAM4). |
-| 140      | Nominal Bit Rate                     | In units of 100 Mb/s. Value `255` means see byte 192. |
+| 140      | Nominal Bit Rate                     | In units of 100 Mb/s. Value `255` means see byte 222. |
 | 141      | Extended Rate Select Compliance      | Rate select version, if supported. |
 | 142      | Length (SMF, km)                      | Maximum reach over single-mode fiber in km. |
 | 143      | Length (OM3, 2 m)                     | Maximum reach over OM3 fiber in units of 2 m. |
@@ -299,7 +283,7 @@ Upper Page 00h contains factory-programmed static data with fields for multi-lan
 
 **Extended Specification Compliance (byte 192):** For 100G-class modules, byte 131 typically contains the value `Extended`, indicating that the actual application identity is at byte 192. This indirection exists because the original compliance code space was designed for 10G/40G standards and ran out of room for 100G applications.
 
-**Extended Identifier (byte 129):** Encodes the module's power class (determining how much current the host must supply) and whether the module contains CDR circuits for TX and/or RX. Power class is critical for host power budgeting — a Class 4 module draws up to 3.5W, while higher classes can exceed 5W.
+**Extended Identifier (byte 129):** Encodes the module's power class (determining how much current the host must supply) and whether the module contains CDR circuits for TX and/or RX. Power class is critical for host power budgeting — a Class 4 module draws up to 3.5W, while higher classes can exceed 5W. See [Module Power Classes](#module-power-classes) for full details.
 
 ### Upper Page 03h: Alarm and Warning Thresholds
 
@@ -370,7 +354,9 @@ These limitations drove the development of CMIS.
 | SFP-DD      | 50G, 100G          |
 | QSFP112     | 400G               |
 
-CMIS addresses all SFF-8636 limitations. Rather than extending the four-lane register layout, it defines a new register architecture for higher lane counts, flexible data path configurations, and firmware-managed modules. The official [specification PDF](https://www.oiforum.com/wp-content/uploads/OIF-CMIS-05.2.pdf) is available from the OIF website.
+With 400G/800G modules came eight or more host lanes, complex DSPs, multiple operating modes, and field-upgradable firmware. Rather than extending SFF-8636's four-lane register layout, CMIS defines a new register architecture designed from the ground up for higher lane counts, flexible data path configurations, and firmware-managed modules. The official [specification PDF](https://www.oiforum.com/wp-content/uploads/OIF-CMIS-05.2.pdf) is available from the OIF website.
+
+*Example:* The Cisco QDD-400G-DR4-S (QSFP-DD) — a 400G optic that runs live firmware, uses state machines to initialize high-power components, and negotiates operational modes with the host.
 
 Key characteristics:
 
@@ -499,6 +485,7 @@ As module complexity grows — particularly for coherent optics (ZR/ZR+) — con
 *Where it lives:* Lower Memory (power mode, reset), Page 01h (application selection), Page 10h (TX Disable, lane controls), Pages 30h–3Fh (coherent optics configuration), Page 9Fh (CDB mailbox), banked pages for per-lane configuration.
 
 
+---
 
 
 ## Module Power Classes
@@ -507,13 +494,13 @@ Transceiver modules vary widely in power consumption — a simple SR4 module may
 
 ### Power-Up Sequence
 
-When a module is first inserted, it enters a **low-power state** (≤1.5W regardless of its class). In this state the module draws only enough current to power its microcontroller and respond over the I2C management bus. The host reads the module's advertised power class from EEPROM, verifies that its power budget can accommodate the demand, and — if sufficient — deasserts `LPMode` to release the module into full-power operation. Only then do the lasers, DSP, and high-speed electronics activate.
+When a module is first inserted, it enters a **low-power state** (≤1.5W regardless of its class). In this state the module draws only enough current to power its microcontroller and respond over the I²C management bus. The host reads the module's advertised power class from EEPROM, verifies that its power budget can accommodate the demand, and — if sufficient — deasserts `LPMode` to release the module into full-power operation. Only then do the lasers, DSP, and high-speed electronics activate.
 
 If the host cannot supply the requested power (for example, if adjacent ports have already consumed the available power budget), it keeps `LPMode` asserted and the module remains in a low-power state, unable to pass traffic. This prevents overloading power delivery networks and protects the switch from thermal or electrical faults.
 
 ### SFF-8636 Power Classes (QSFP+ / QSFP28)
 
-For QSFP+ and QSFP28 modules managed under SFF-8636, power classes are defined as discrete tiers stored in the module's EEPROM (Page 0, Byte 129). Classes 1–4 were defined in the original specification; classes 5–7 were added in later revisions to accommodate higher-power optics such as QSFP28 LR4 and ER4.
+For QSFP+ and QSFP28 modules managed under SFF-8636, power classes are defined as discrete tiers stored in the module's EEPROM (Page 00h, Byte 129 — Extended Identifier). Classes 1–4 were defined in the original specification; classes 5–7 were added in later revisions to accommodate higher-power optics such as QSFP28 LR4 and ER4.
 
 | Power Class | Maximum Power | Typical Module Examples            |
 | ----------- | ------------- | ---------------------------------- |
@@ -527,7 +514,7 @@ For QSFP+ and QSFP28 modules managed under SFF-8636, power classes are defined a
 
 ### CMIS Power Reporting (QSFP-DD / OSFP)
 
-Newer form factors managed under CMIS (Common Management Interface Specification) take a different approach. Rather than relying solely on fixed class tiers, the module reports its **exact maximum power** as a numeric value (in 0.1W increments) in its EEPROM. This gives the host precise information for power budgeting without being constrained to coarse class boundaries.
+Newer form factors managed under CMIS take a different approach. Rather than relying solely on fixed class tiers, the module reports its **exact maximum power** as a numeric value (in 0.1W increments) in its EEPROM. This gives the host precise information for power budgeting without being constrained to coarse class boundaries.
 
 CMIS also defines broad power classes for initial categorization, but the explicit maximum-power field is the authoritative value used by host firmware for power allocation decisions.
 
@@ -549,3 +536,55 @@ For Class 8 and above, the module's EEPROM specifies the exact wattage (up to 24
 Power class management is not just a per-port decision — it is a system-level constraint. A switch has a finite total power budget shared across all ports, the internal ASIC, fans, and control logic. Platform firmware must track cumulative power allocation and may deny high-power mode to a module if granting it would exceed the system's total power envelope or the per-slot thermal limit.
 
 This is why the same module may initialize successfully in one port but remain in low-power mode in another port on the same switch — the power budget may already be exhausted by neighboring modules. Network management software typically reports per-port power allocation status to help operators diagnose this condition.
+
+
+---
+
+
+## Vendor Locking and Third-Party Optics
+
+Every pluggable transceiver contains an EEPROM that reports its vendor name, part number, and OUI (Organizationally Unique Identifier) to the host over the I²C management interface. When a module is inserted, the host reads these fields during initialization. Some switch platforms use this information solely for inventory and logging. Others actively enforce a **Qualified Vendor List (QVL)** — if the module's EEPROM does not contain a recognized vendor code, the switch may refuse to enable the port, disable the transmitter, or log an error and restrict the interface to a degraded state.
+
+### Why Vendor Locking Exists
+
+Switch vendors justify this practice on three grounds:
+
+- **Interoperability validation**: The switch vendor has tested specific transceiver models against their hardware and firmware. A qualified module is guaranteed to initialize correctly, report accurate DOM data, and meet timing and signal integrity requirements.
+
+- **Support boundaries**: If a link fault occurs with a third-party optic installed, the switch vendor cannot diagnose whether the problem lies in their hardware or in the unvalidated module. Restricting to qualified optics simplifies support triage.
+
+- **Revenue protection**: First-party optics carry higher margins than the switch hardware itself. Vendor locking ensures that customers purchase transceivers from the same vendor rather than from lower-cost third-party suppliers.
+
+### How Locking is Implemented
+
+The host reads the vendor identification fields from the module's EEPROM during initialization:
+
+- **SFF-8472 (SFP):** Vendor Name at A0h bytes 20–35, Vendor OUI at bytes 37–39.
+- **SFF-8636 (QSFP28):** Vendor Name at Page 00h bytes 148–163, Vendor OUI at bytes 165–167.
+- **CMIS (QSFP-DD/OSFP):** Vendor Name and OUI on Page 00h at similar offsets.
+
+The switch NOS compares these values against an internal allowlist. If the module is not recognized, the platform takes one of several actions depending on the vendor and software version:
+
+| Platform             | Default Behavior (Unrecognized Module) | Override Available |
+|----------------------|----------------------------------------|--------------------|
+| Cisco IOS-XE / NX-OS | Port disabled, error logged            | `service unsupported-transceiver` |
+| Juniper Junos        | Port disabled, alarm raised            | `set chassis no-validate-peer` (or per-PIC) |
+| Arista EOS           | Port enabled, warning logged           | No override needed (permissive by default) |
+| SONiC                | Port enabled, no restriction           | N/A (open platform) |
+
+### Third-Party and Compatible Optics
+
+A large market exists for third-party transceivers that are programmed with the EEPROM vendor codes expected by a specific switch platform. These are sold as "Cisco Compatible," "Juniper Compatible," etc. Electrically and optically, they are equivalent to first-party modules — often manufactured in the same factories — but their EEPROMs are coded to pass the switch's vendor check.
+
+When purchasing any transceiver — whether production optics, DACs, AOCs, or loopback modules — the target switch platform must be considered to ensure the EEPROM coding will be accepted. For open platforms (SONiC, Cumulus, OpenSwitch), vendor coding is irrelevant and any MSA-compliant module will initialize normally.
+
+### Risks of Unvalidated Optics
+
+While third-party optics are widely used without issue, potential risks include:
+
+- **Inaccurate DOM reporting**: Some low-cost modules report incorrect or uncalibrated diagnostic values, complicating link troubleshooting.
+- **Missing features**: Certain vendor-specific EEPROM extensions (enhanced diagnostics, firmware update support) may not be implemented.
+- **Thermal non-compliance**: Modules that exceed their advertised power class or thermal envelope can cause adjacent port degradation.
+- **No vendor support**: The switch vendor will not troubleshoot link issues involving unqualified optics.
+
+For production networks requiring vendor support contracts, using qualified optics is standard practice. For lab environments, development platforms, and open-source NOS deployments, third-party optics offer significant cost savings with minimal practical risk.

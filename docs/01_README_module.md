@@ -233,7 +233,7 @@ Each part of this name communicates important technical information about how th
 
 - **Speed** defines the total data rate (e.g., 100G, 400G, 800G).
 - **Reach Code** defines the supported distance and fiber type.
-- **Lane Count** defines how many parallel optical channels are used to achieve the total speed.
+- **Lane Count** defines how many independent optical channels are used to achieve the total speed.
 
 For example, `400G-DR4` means:
 
@@ -241,10 +241,11 @@ For example, `400G-DR4` means:
 - DR → Data Center Reach (single-mode fiber, ~500 meters)
 - 4 → Four optical lanes
 
-The lane count determines how many independent optical channels carry the total bandwidth, and this directly determines the cabling architecture (see [Bandwidth Scaling](03_README_fiber.md#bandwidth-scaling) for the underlying concepts):
+The lane count indicates how many independent optical channels carry the total bandwidth. Whether those channels travel on separate fibers or are wavelength-multiplexed onto a single fiber pair depends on the reach code (see [Bandwidth Scaling](03_README_fiber.md#bandwidth-scaling) for the underlying concepts):
 
-- **Lane count = 1** (or not shown, e.g., `100G-LR`): The module uses wavelength multiplexing to fit all channels onto a single fiber pair. Cabling requires only two fibers and a duplex LC connector.
-- **Lane count > 1** (e.g., DR4, SR8): The module uses parallel optics — each lane occupies a dedicated fiber. A 4-lane module requires 8 fibers (4 TX + 4 RX), an 8-lane module requires 16 fibers (8 TX + 8 RX), and these are terminated with a multi-fiber MPO connector.
+- **No suffix** (e.g., `100G-DR`, `100G-LR`): A single optical channel carries the full data rate over one fiber pair, terminated with a duplex LC connector.
+- **SR or DR with a lane suffix** (e.g., `100G-SR4`, `400G-DR4`): The module uses **parallel optics** — each channel is carried on a dedicated fiber. A 4-channel module requires 8 fibers (4 TX + 4 RX), an 8-channel module requires 16 fibers, and these are terminated with a multi-fiber MPO connector.
+- **FR, LR, or ER with a lane suffix** (e.g., `400G-FR4`, `100G-LR4`): The module uses **WDM** (Wavelength Division Multiplexing) — all channels are multiplexed onto a single fiber pair, terminated with a duplex LC connector.
 
 
 ## Breakout Cables
@@ -278,9 +279,13 @@ In a modular optical setup, the transceiver and fiber cable are separate compone
 
 <img src="../pics/breakout_optics_lego.png" alt="segment" width="300">
 
+
+
 ## Loopback Module
 
 A loopback module is a test device packaged in a standard MSA-compliant transceiver housing. It has no media-side interface — no fiber connector, no cable, and no external medium. Instead, it internally routes the host's transmit (TX) signals directly back to the receive (RX) inputs within the module. The switch's own transmitted data is returned to its receiver lanes, allowing engineers to test and validate ports without external cables, optics, or remote equipment.
+
+<img src="../pics/loopback-options.png" alt="segment" width="700">
 
 Loopback modules are available in two types:
 
@@ -300,17 +305,13 @@ A purely passive loopback draws no power from the host, which means the port's p
 
 Loopback modules with a power consumption option include internal resistive loads that draw a specified wattage (e.g., 3.0 W or 3.5 W) from the host's Vcc supply. This forces the port to deliver and dissipate power as if a real transceiver were installed, exercising the power delivery network, validating per-port current capacity, and generating realistic thermal conditions for fan speed and heat sink testing. The power draw also ensures that adjacent ports can all operate at rated power without voltage drooping below specification.
 
-### Vendor Compatibility
-
-Like production transceivers, loopback modules contain an EEPROM that reports vendor identification, serial number, and module type to the host over the I2C management interface. Many enterprise switches (Cisco, Juniper, Arista, etc.) check this vendor field and may reject or disable ports with unrecognized modules. Loopback modules are therefore sold in vendor-specific variants — for example, a "Cisco Compatible" loopback is programmed with the vendor codes that Cisco's software expects, ensuring the port initializes normally and reports correct status. When purchasing loopback modules, the target switch platform must be specified to ensure the EEPROM coding matches.
-
 ### Insertion Cycle Rating
 
 Production transceivers are typically installed once and left in place for years. Loopback modules, by contrast, are repeatedly inserted and removed as they are rotated across dozens or hundreds of ports during test campaigns. Manufacturers rate loopback modules for a minimum number of mating cycles (commonly > 500 insertions). The MSA-compliant connector and housing are designed to withstand this repeated mechanical stress without degrading contact resistance or alignment.
 
 ### Use Cases
 
-Loopback modules are available for all standard form factors including SFP+, SFP28, QSFP+, QSFP28, QSFP-DD, and OSFP. They are primarily used in:
+Loopback modules are available for all standard form factors including SFP+, SFP28, QSFP+, QSFP28, QSFP-DD, and OSFP. Like any pluggable module, they are subject to [vendor locking](./02_README_module_mgmt.md#vendor-locking-and-third-party-optics) — the EEPROM must be coded for the target switch platform. They are primarily used in:
 
 - **R&D validation**: Verifying SerDes performance, power delivery, and thermal behavior across all ports under controlled conditions.
 - **Production testing**: Confirming that each port on a newly manufactured switch functions correctly before shipment.
