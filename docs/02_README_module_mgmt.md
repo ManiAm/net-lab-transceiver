@@ -497,3 +497,55 @@ For complex operations (firmware upgrades, bulk configuration, advanced diagnost
 As module complexity grows — particularly for coherent optics (ZR/ZR+) — control extends to DSP parameter tuning, optical frequency selection, modulation formats, and FEC modes. CMIS accommodates this without changing the physical management interface.
 
 *Where it lives:* Lower Memory (power mode, reset), Page 01h (application selection), Page 10h (TX Disable, lane controls), Pages 30h–3Fh (coherent optics configuration), Page 9Fh (CDB mailbox), banked pages for per-lane configuration.
+
+
+
+
+## Module Power Classes
+
+Transceiver modules vary widely in power consumption — a simple SR4 module may draw under 2.5W, while a coherent ZR module can exceed 15W. The host must know how much power each port will demand before allowing the module to fully activate. Power classes provide this mechanism: the module advertises its maximum power requirement, and the host decides whether to grant high-power operation.
+
+### Power-Up Sequence
+
+When a module is first inserted, it enters a **low-power state** (≤1.5W regardless of its class). In this state the module draws only enough current to power its microcontroller and respond over the I2C management bus. The host reads the module's advertised power class from EEPROM, verifies that its power budget can accommodate the demand, and — if sufficient — deasserts `LPMode` to release the module into full-power operation. Only then do the lasers, DSP, and high-speed electronics activate.
+
+If the host cannot supply the requested power (for example, if adjacent ports have already consumed the available power budget), it keeps `LPMode` asserted and the module remains in a low-power state, unable to pass traffic. This prevents overloading power delivery networks and protects the switch from thermal or electrical faults.
+
+### SFF-8636 Power Classes (QSFP+ / QSFP28)
+
+For QSFP+ and QSFP28 modules managed under SFF-8636, power classes are defined as discrete tiers stored in the module's EEPROM (Page 0, Byte 129). Classes 1–4 were defined in the original specification; classes 5–7 were added in later revisions to accommodate higher-power optics such as QSFP28 LR4 and ER4.
+
+| Power Class | Maximum Power | Typical Module Examples            |
+| ----------- | ------------- | ---------------------------------- |
+| Class 1     | 1.5W          | Passive copper, low-power SR       |
+| Class 2     | 2.0W          | Basic SR4                          |
+| Class 3     | 2.5W          | SR4, PSM4                          |
+| Class 4     | 3.5W          | LR4, CWDM4                         |
+| Class 5     | 4.0W          | High-performance LR4               |
+| Class 6     | 4.5W          | ER4 lite                           |
+| Class 7     | 5.0W          | ER4, extended-temperature variants |
+
+### CMIS Power Reporting (QSFP-DD / OSFP)
+
+Newer form factors managed under CMIS (Common Management Interface Specification) take a different approach. Rather than relying solely on fixed class tiers, the module reports its **exact maximum power** as a numeric value (in 0.1W increments) in its EEPROM. This gives the host precise information for power budgeting without being constrained to coarse class boundaries.
+
+CMIS also defines broad power classes for initial categorization, but the explicit maximum-power field is the authoritative value used by host firmware for power allocation decisions.
+
+| Power Class | Maximum Power | Typical Application             |
+| ----------- | ------------- | ------------------------------- |
+| Class 1     | 1.5W          | Low-power / passive             |
+| Class 2     | 3.5W          | Short-reach optics (SR4)        |
+| Class 3     | 7.0W          | DR4, FR4                        |
+| Class 4     | 8.0W          | FR4, LR4                        |
+| Class 5     | 10.0W         | High-power LR4, ER4             |
+| Class 6     | 12.0W         | Coherent optics (ZR)            |
+| Class 7     | 14.0W         | High-power coherent (ZR, ZR+)   |
+| Class 8     | > 14.0W       | Extended coherent (ZR+, OLS)    |
+
+For Class 8 and above, the module's EEPROM specifies the exact wattage (up to 24W or more for high-power OSFP coherent modules). The host reads this value directly rather than relying on the class tier alone.
+
+### Platform Power Budgeting
+
+Power class management is not just a per-port decision — it is a system-level constraint. A switch has a finite total power budget shared across all ports, the internal ASIC, fans, and control logic. Platform firmware must track cumulative power allocation and may deny high-power mode to a module if granting it would exceed the system's total power envelope or the per-slot thermal limit.
+
+This is why the same module may initialize successfully in one port but remain in low-power mode in another port on the same switch — the power budget may already be exhausted by neighboring modules. Network management software typically reports per-port power allocation status to help operators diagnose this condition.

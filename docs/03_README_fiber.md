@@ -175,3 +175,100 @@ Key observations:
 - The three LC cables all show Gender as "N/A" and Polarity as "N/A" because LC is genderless and duplex LC is inherently crossed (the clip swaps fiber positions between ends).
 - The MPO cable requires explicit gender (female-to-female for device-to-device) and polarity (Type B crossover for direct TX-to-RX alignment).
 - For a simple lab setup connecting two SR4 transceivers on the same switch, a **Type B, female-to-female, 12-fiber OM4** MPO cable is the correct choice.
+
+
+## Optical Link Budget
+
+An optical link budget determines whether a fiber link will function correctly. It compares the optical power available from the transmitter against the total losses accumulated along the path. If sufficient power remains at the receiver, the link operates within specification. If losses exceed the available power, the link fails or experiences unacceptable bit error rates.
+
+### Decibels: dB and dBm
+
+Link budget calculations use logarithmic units because optical power spans many orders of magnitude and losses multiply across a chain of components. Two related units appear throughout:
+
+**dBm** (decibels relative to one milliwatt) expresses **absolute optical power**. It converts a power measurement in milliwatts to a logarithmic scale:
+
+    Power (dBm) = 10 × log₁₀(Power in mW)
+
+| Power (mW) | Power (dBm) | Context |
+|------------|-------------|---------|
+| 1.0        | 0 dBm       | Reference point |
+| 2.0        | +3 dBm      | Typical strong TX launch |
+| 0.5        | −3 dBm      | Moderate TX launch |
+| 0.1        | −10 dBm     | Weak signal |
+| 0.01       | −20 dBm     | Near receiver sensitivity limit |
+
+**dB** (decibels) expresses **relative change** — how much power is gained or lost. A connector that passes 80% of light has a loss of approximately 1 dB. A fiber span that reduces power to 25% of its input has a loss of 6 dB.
+
+The practical advantage: in dBm/dB arithmetic, multiplication becomes addition and division becomes subtraction. Total received power is simply:
+
+    Received Power (dBm) = TX Power (dBm) − Total Loss (dB)
+
+### Loss Sources
+
+Every component between the transmitter and receiver introduces optical loss. The primary contributors are:
+
+| Loss Source | Typical Value | Notes |
+|-------------|---------------|-------|
+| **Fiber attenuation (MMF @ 850 nm)** | 3.0–3.5 dB/km | High attenuation limits MMF to short distances |
+| **Fiber attenuation (SMF @ 1310 nm)** | 0.35–0.4 dB/km | Standard for DR/FR/LR modules |
+| **Fiber attenuation (SMF @ 1550 nm)** | 0.2–0.25 dB/km | Lowest loss window; used by ER/ZR modules |
+| **Connector pair (LC, mated)** | 0.3–0.5 dB | Each mated pair adds loss |
+| **Connector pair (MPO, mated)** | 0.3–0.7 dB | Higher variability due to multi-fiber alignment |
+| **Fusion splice** | 0.05–0.1 dB | Permanent fiber joins in structured cabling |
+| **Mechanical splice** | 0.2–0.5 dB | Field-installable, less precise than fusion |
+
+Fiber attenuation scales linearly with distance: a 5 km span of OS2 fiber at 1310 nm accumulates 5 × 0.4 = 2.0 dB of loss. Connector and splice losses are fixed per occurrence regardless of cable length.
+
+### The Link Budget Equation
+
+A complete link budget accounts for all elements in the optical path:
+
+    Power Margin = TX Power − Fiber Loss − Connector Losses − Splice Losses − Receiver Sensitivity
+
+Where:
+
+- **TX Power** (dBm): The optical power the transceiver launches into the fiber, specified in the module's datasheet.
+- **Fiber Loss** (dB): Attenuation rate (dB/km) × link distance (km).
+- **Connector Losses** (dB): Loss per mated pair × number of connector pairs in the path.
+- **Splice Losses** (dB): Loss per splice × number of splices.
+- **Receiver Sensitivity** (dBm): The minimum power at which the receiver achieves its specified bit error rate (BER). This is a negative dBm value — the more negative, the more sensitive the receiver.
+
+The result — **power margin** — must be positive for the link to function. Industry practice requires a minimum margin of 2–3 dB to account for component aging, temperature variation, connector contamination, and future maintenance splices.
+
+### Worked Example
+
+**Scenario:** A 100G-LR4 link over 8 km of OS2 single-mode fiber with 4 mated connector pairs (two patch panels plus the two transceiver connections) and no intermediate splices.
+
+**Module specifications (from datasheet):**
+- TX launch power: +2.0 dBm
+- Receiver sensitivity: −13.7 dBm (at BER = 1×10⁻¹²)
+
+**Loss calculation:**
+
+| Component | Calculation | Loss |
+|-----------|-------------|------|
+| Fiber (OS2 @ 1310 nm) | 8 km × 0.4 dB/km | 3.2 dB |
+| Connectors | 4 pairs × 0.5 dB | 2.0 dB |
+| **Total path loss** | | **5.2 dB** |
+
+**Budget:**
+
+    Received power = +2.0 dBm − 5.2 dB = −3.2 dBm
+    Power margin   = −3.2 dBm − (−13.7 dBm) = +10.5 dB
+
+A margin of +10.5 dB is well above the recommended minimum. This link will operate reliably with substantial headroom for degradation over time.
+
+**Failure scenario:** If the same module were deployed over 25 km (beyond its 10 km rating):
+
+    Fiber loss     = 25 km × 0.4 dB/km = 10.0 dB
+    Connectors     = 4 × 0.5 dB = 2.0 dB
+    Received power = +2.0 − 12.0 = −10.0 dBm
+    Power margin   = −10.0 − (−13.7) = +3.7 dB
+
+The link would technically close, but with minimal margin — any connector contamination or temperature shift could push the received power below sensitivity, causing intermittent errors.
+
+### Relationship to Transceiver Reach Standards
+
+The [reach codes](01_README_module.md#optical-transceiver-reach-standards) defined in the transceiver documentation (SR, DR, FR, LR, ER, ZR) are pre-calculated link budgets. Each standard specifies a TX power range and receiver sensitivity that guarantee operation at the rated distance, assuming a standard fiber grade and a typical number of connectors. The reach rating represents the maximum distance at which the power margin remains positive under worst-case assumptions.
+
+When DOM telemetry (accessible through the [management interface](02_README_module_mgmt.md)) reports live TX and RX power in dBm, the difference between them is the actual measured path loss. Comparing this measured loss against the link budget reveals how much margin remains — or whether a degraded connector or fiber break is consuming more loss than expected.
