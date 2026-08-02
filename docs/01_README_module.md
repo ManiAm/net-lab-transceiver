@@ -2,9 +2,9 @@
 
 Network switches are expensive, long-term investments. If a switch were built with permanently attached cables or a fixed media type, it would be operationally rigid and difficult to adapt. To address this, the networking industry uses a pluggable architecture consisting of three distinct layers.
 
-- **The Port (The Cage)**: This is the physical, empty slot built into the front panel of the switch chassis. It serves as a mechanical docking station and an electrical connector. It provides power, grounding, and a direct connection back to the switch's internal ASIC via the [SerDes lanes](https://github.com/ManiAm/net-lab-switch-serdes/blob/master/docs/02_README_serdes.md#serdes-and-lanes). The port is entirely media-agnostic — it is independent of whether copper or fiber optics will be deployed. It provides only a standardized electrical interface (such as an SFP or QSFP slot).
+- **The Port (The Cage)**: This is the physical, empty slot built into the front panel of the switch chassis. It serves as a mechanical docking station and an electrical connector. It provides power, grounding, and a direct connection back to the switch's internal ASIC via the [SerDes lanes](https://github.com/ManiAm/net-lab-switch-serdes/blob/master/docs/02_README_serdes.md#serdes-and-lanes). The port is entirely media-agnostic — it is independent of whether copper or fiber optics will be deployed. It conforms to a standardized mechanical and electrical specification (such as SFP or QSFP).
 
-- **The Transceiver (The Module)**: This is the hot-swappable metal module that slides into the port. It acts as the translator of the system — accepting high-speed electrical signals from the switch and converting them into a format suitable for the chosen transmission medium. The transceiver defines the link parameters: speed (e.g., 10G, 100G, 400G), maximum distance (from 3 meters to 80 kilometers), and physical medium (lasers for fiber, or drivers for copper).
+- **The Transceiver (The Module)**: This is the hot-swappable metal module that slides into the port. It serves as the signal conversion element — accepting high-speed electrical signals from the switch and converting them into a format suitable for the chosen transmission medium. The transceiver defines the link parameters: speed (e.g., 10G, 100G, 400G), maximum distance (from 3 meters to 80 kilometers), and physical medium (lasers for fiber, or drivers for copper).
 
 - **The Cable**: This is the physical wire or fiber that plugs into the outside of the transceiver. It is the medium over which the signal travels to reach the next device. Common types include fiber optic patch cables, direct-attach copper cables (DAC), active optical cables (AOC), and standard twisted-pair Ethernet cabling (Base-T).
 
@@ -93,7 +93,8 @@ The CFP family is declining in relevance even within telecom. Advances in photon
 
 CFP2 remains in active use for certain coherent and DCI (Data Center Interconnect) applications where higher optical output power or specialized wavelength tunability exceeds what QSFP-DD can deliver. However, new platform designs increasingly favor QSFP-DD and OSFP exclusively.
 
-For data center switching platforms — including the DX010 with its QSFP28 ports — CFP modules are physically incompatible and not applicable.
+For data center switching platforms equipped with QSFP28 or QSFP-DD ports, CFP modules are physically incompatible and not applicable.
+
 
 ## QSFP28 Transceiver Interface
 
@@ -134,13 +135,107 @@ After the module is powered and recognized, network traffic can flow.
 - **Media side:** The module converts between the host electrical domain and the external optical medium. For an optical QSFP28, the media side contains a Quad Optical Transmitter (four laser sources) and a Quad Optical Receiver (four photodetectors). The connector type depends on the optical architecture: parallel-lane variants use an MPO connector, while wavelength-multiplexed variants use a duplex LC connector (see [Optical Transceiver Naming](#optical-transceiver-naming) for the general rule).
 
 
+## Optics vs. Copper
+
+With the module's interfaces and form factors established, the next decision is the physical medium. The industry stays on copper as long as possible — copper is cheaper, lower power, more reliable, and lower latency. The transition to optics is forced by two limits: **reach** (copper degrades over a few meters at 200G+ PAM4 lane rates) and **density** (there is not enough physical space for the copper traces and cables required to satisfy modern XPU bandwidth within a rack).
+
+| Parameter              | Copper                        | Optics                              |
+| ---------------------- | ----------------------------- | ----------------------------------- |
+| Reach                  | ~3 m (at 200G PAM4)           | Hundreds of meters to kilometers    |
+| Rack bandwidth density | Limited by trace/cable count  | Much higher (fiber is thin)         |
+| Cost                   | Lower                         | Higher (active components)          |
+| Power                  | Lower                         | Higher                              |
+| Reliability (FIT)      | 0–3                           | 100–500                             |
+| Latency                | Lower                         | Higher (when DSP is present)        |
+
+**FIT (Failures In Time)** is a reliability metric indicating the expected number of failures per one billion device-hours of operation. A lower FIT rate means higher reliability.
+
+
+## Optical Transceiver Reach Standards
+
+Optical transceiver reach codes define the operational class of a module. Each code specifies:
+
+- Maximum supported distance
+- Required fiber type
+- Typical connector style
+- Relative power and thermal profile
+- Intended deployment environment
+
+These classifications allow network designers to determine whether a module is appropriate for short intra-rack links, large data center fabrics, or long-haul interconnects between buildings or cities.
+
+| Acronym | Full Name              | Distance (Reach)   | Fiber Mode    | Typical Connector | Power Draw | Primary Use Case                            |
+| ------: | ---------------------- | ------------------ | ------------- | ----------------- | ---------- | ------------------------------------------- |
+|  **SR** | Short Reach            | ~100 m             | MMF           | LC or MPO         | Low        | Server to Top-of-Rack                       |
+|  **DR** | Datacenter Reach       | ~500 m             | SMF           | LC or MPO         | Medium     | Spine-Leaf inside data center               |
+|  **FR** | Fiber Reach            | ~2 km              | SMF           | LC                | Med-High   | Large data halls / inter-floor              |
+|  **LR** | Long Reach             | ~10 km             | SMF           | LC                | High       | Campus / building backbone                  |
+|  **ER** | Extended Reach         | ~40 km             | SMF           | LC                | Higher     | Metro edge / regional links                 |
+|  **ZR** | ZR                     | ~80 km             | SMF           | LC                | Very High  | Data Center Interconnect (DCI)              |
+| **ZR+** | Extended ZR (Coherent) | 80 km+             | SMF           | LC                | Highest    | Long-haul / coherent DCI / carrier networks |
+
+A fundamental principle governs all reach categories: as transmission distance increases, optical complexity increases. Longer distances require stronger laser output, more advanced modulation techniques, and more sophisticated digital signal processing (DSP) to compensate for attenuation and dispersion in the fiber. This results in higher power consumption and greater thermal demands on the switch.
+
+### `SR` – Short Reach
+
+SR modules are designed for short-distance links (typically up to 100 meters) over multimode fiber, commonly OM3 or OM4. They operate at 850 nm using VCSEL-based transmitters, which are relatively simple and power-efficient. SR optics are widely used for server-to-switch and rack-to-rack connectivity inside data centers. Because multimode fiber is optimized for short runs, SR modules represent the lowest power and lowest complexity class of optical transceivers. Connectors are typically LC for duplex variants or MPO for multi-lane implementations such as SR4 or SR8.
+
+### `DR` – Data Center Reach
+
+DR modules support medium-range links of approximately 500 meters over single-mode fiber. They are commonly deployed in spine–leaf topologies within modern data centers where single-mode infrastructure is preferred for scalability. Compared to SR, DR optics use higher-performance lasers and often parallel lane architectures (e.g., DR4). Power consumption is higher than SR due to tighter signal control requirements, but still optimized for data center environments.
+
+### `FR` – Fiber Reach
+
+FR modules extend transmission distance to roughly 2 kilometers over single-mode fiber. They are typically used for connections across large data center halls or between buildings within a campus. Unlike SR and DR, which use parallel fibers, FR modules use wavelength division multiplexing (WDM) to carry multiple lanes over a single fiber pair — for example, FR4 carries four wavelengths on one duplex LC connector. The increased span requires stronger optical components and more advanced signal conditioning than DR, resulting in higher power consumption.
+
+### `LR` – Long Reach
+
+LR modules support distances of approximately 10 kilometers over single-mode fiber and are widely used for building-to-building campus backbones. At this range, chromatic dispersion and attenuation become more significant, requiring higher laser output and more sophisticated signal compensation. Consequently, LR modules consume more power and generate more heat than FR or DR classes. LR optics typically use duplex LC connectors and direct-detect modulation.
+
+### `ER` – Extended Reach
+
+ER modules extend optical reach to approximately 40 kilometers over single-mode fiber. These modules are commonly used for metro edge connectivity and regional interconnects between data centers within a metropolitan area. Compared to LR, ER optics require higher optical launch power, improved receiver sensitivity, and tighter dispersion control. Power consumption increases further due to the expanded optical budget and signal management requirements. ER modules remain primarily direct-detect designs but operate near the upper practical limits of that architecture.
+
+### `ZR`
+
+ZR modules are engineered for long-haul links of approximately 80 kilometers and are commonly deployed in Data Center Interconnect (DCI) applications. At this distance, direct-detect techniques are insufficient. ZR is defined as a coherent standard (e.g., OIF 400ZR), meaning the module uses coherent modulation with an integrated DSP engine capable of compensating for chromatic dispersion, polarization mode dispersion, and other long-distance impairments. These modules represent a significant increase in complexity and power consumption compared to SR–ER classes.
+
+### `ZR+` – Extended ZR (Coherent Extended Reach)
+
+ZR+ is an enhanced, often MSA-defined or vendor-extended version of ZR that supports distances beyond 80 kilometers, frequently ranging from 100 km to several hundred kilometers depending on system design. ZR+ modules are fully coherent pluggables with powerful DSP engines and advanced modulation formats (e.g., higher-order QAM). They are used in long-haul DCI and carrier-grade backbone networks. ZR+ optics consume the highest power among pluggable modules due to the complexity of coherent signal processing and extended optical budgets.
+
+
+## Optical Transceiver Naming
+
+Optical module names follow a standardized format:
+
+    [Speed] – [Reach Code][Lane Count]
+
+Each part of this name communicates important technical information about how the module operates.
+
+- **Speed** defines the total data rate (e.g., 100G, 400G, 800G).
+- **Reach Code** defines the supported distance and fiber type (as established in the [Optical Transceiver Reach Standards](#optical-transceiver-reach-standards) section above).
+- **Lane Count** defines how many independent optical channels are used to achieve the total speed.
+
+For example, `400G-DR4` means:
+
+- 400G → Total bandwidth of 400 gigabits per second
+- DR → Data Center Reach (single-mode fiber, ~500 meters)
+- 4 → Four optical lanes
+
+The lane count indicates how many independent optical channels carry the total bandwidth. Whether those channels travel on separate fibers or are wavelength-multiplexed onto a single fiber pair depends on the reach code (see [Bandwidth Scaling](03_README_fiber.md#bandwidth-scaling) for the underlying concepts):
+
+- **No suffix** (e.g., `100G-DR`, `100G-LR`): A single optical channel carries the full data rate over one fiber pair, terminated with a duplex LC connector.
+- **SR or DR with a lane suffix** (e.g., `100G-SR4`, `400G-DR4`): The module uses **parallel optics** — each channel is carried on a dedicated fiber. A 4-channel module requires 8 fibers (4 TX + 4 RX), an 8-channel module requires 16 fibers, and these are terminated with a multi-fiber MPO connector.
+- **FR, LR, or ER with a lane suffix** (e.g., `400G-FR4`, `100G-LR4`): The module uses **WDM** (Wavelength Division Multiplexing) — all channels are multiplexed onto a single fiber pair, terminated with a duplex LC connector.
+
+
 ## Media-Side Cabling
 
 The media side of a transceiver connects to the external network through a cable or integrated assembly. Four cabling architectures are common in practice, each offering a different balance of flexibility, cost, reach, and serviceability.
 
 ### Modular Optical
 
-Modular optical connectivity separates the transceiver from the fiber cable. The switch port provides a high-speed electrical interface, a pluggable optical transceiver converts that signal to light, and a removable fiber patch cable connects two devices. Because the optics and the cable are independent components, each can be selected based on distance and application. The [Optical Transceiver Reach Standards](#optical-transceiver-reach-standards) section defines the standard distance classes available.
+Modular optical connectivity separates the transceiver from the fiber cable. The switch port provides a high-speed electrical interface, a pluggable optical transceiver converts that signal to light, and a removable fiber patch cable connects two devices. Because the optics and the cable are independent components, each can be selected based on distance and application — the standard distance classes are defined in the [Optical Transceiver Reach Standards](#optical-transceiver-reach-standards) section above.
 
 This model provides maximum flexibility and serviceability. If a fiber cable is damaged, only the cable is replaced. If distance requirements change, the transceiver can be swapped without replacing the switch. Optical transceivers also support Digital Optical Monitoring (DOM), which provides real-time telemetry including TX/RX optical power (in dBm), laser bias current, module temperature, and supply voltage. This data is accessible through the module's management interface and is invaluable for link troubleshooting and preventive maintenance.
 
@@ -171,95 +266,18 @@ While Base-T provides compatibility with structured building cabling and legacy 
 <img src="../pics/transceiver_base_t.jpg" alt="segment" width="200">
 
 
-## Optical Transceiver Reach Standards
-
-Optical transceiver reach codes define the operational class of a module. Each code specifies:
-
-- Maximum supported distance
-- Required fiber type
-- Typical connector style
-- Relative power and thermal profile
-- Intended deployment environment
-
-These classifications allow network designers to determine whether a module is appropriate for short intra-rack links, large data center fabrics, or long-haul interconnects between buildings or cities.
-
-| Acronym | Full Name              | Distance (Reach)   | Fiber Mode    | Typical Connector | Power Draw | Primary Use Case                            |
-| ------: | ---------------------- | ------------------ | ------------- | ----------------- | ---------- | ------------------------------------------- |
-|  **SR** | Short Reach            | ~100 m             | MMF           | LC or MPO         | Low        | Server to Top-of-Rack                       |
-|  **DR** | Datacenter Reach       | ~500 m             | SMF           | LC or MPO         | Medium     | Spine-Leaf inside data center               |
-|  **FR** | Fiber Reach            | ~2 km              | SMF           | LC                | Med-High   | Large data halls / inter-floor              |
-|  **LR** | Long Reach             | ~10 km             | SMF           | LC                | High       | Campus / building backbone                  |
-|  **ER** | Extended Reach         | ~40 km             | SMF           | LC                | Higher     | Metro edge / regional links                 |
-|  **ZR** | ZR                     | ~80 km             | SMF           | LC                | Very High  | Data Center Interconnect (DCI)              |
-| **ZR+** | Extended ZR (Coherent) | 80 km+             | SMF           | LC                | Highest    | Long-haul / coherent DCI / carrier networks |
-
-A fundamental principle governs all reach categories: as transmission distance increases, optical complexity increases. Longer distances require stronger laser output, more advanced modulation techniques, and more sophisticated digital signal processing (DSP) to compensate for attenuation and dispersion in the fiber. This results in higher power consumption and greater thermal demands on the switch.
-
-### `SR` – Short Reach
-
-SR modules are designed for short-distance links (typically up to 100 meters) over multimode fiber, commonly OM3 or OM4. They operate at 850 nm using VCSEL-based transmitters, which are relatively simple and power-efficient. SR optics are widely used for server-to-switch and rack-to-rack connectivity inside data centers. Because multimode fiber is optimized for short runs, SR modules represent the lowest power and lowest complexity class of optical transceivers. Connectors are typically LC for duplex variants or MPO for multi-lane high-speed implementations such as SR4 or SR8.
-
-### `DR` – Data Center Reach
-
-DR modules support medium-range links of approximately 500 meters over single-mode fiber. They are commonly deployed in spine–leaf topologies within modern data centers where single-mode infrastructure is preferred for scalability. Compared to SR, DR optics use higher-performance lasers and often parallel lane architectures (e.g., DR4). Power consumption is higher than SR due to tighter signal control requirements, but still optimized for data center environments.
-
-### `FR` – Fiber Reach
-
-FR modules extend transmission distance to roughly 2 kilometers over single-mode fiber. They are typically used for connections across large data center halls or between buildings within a campus. Unlike SR and DR, which use parallel fibers, FR modules use wavelength division multiplexing (WDM) to carry multiple lanes over a single fiber pair — for example, FR4 carries four wavelengths on one duplex LC connector. The increased span requires stronger optical components and more advanced signal conditioning than DR, resulting in higher power consumption.
-
-### `LR` – Long Reach
-
-LR modules support distances of approximately 10 kilometers over single-mode fiber and are widely used for building-to-building campus backbones. At this range, chromatic dispersion and attenuation become more significant, requiring higher laser output and more sophisticated signal compensation. Consequently, LR modules consume more power and generate more heat than FR or DR classes. LR optics typically use duplex LC connectors and direct-detect modulation.
-
-### `ER` – Extended Reach
-
-ER modules extend optical reach to approximately 40 kilometers over single-mode fiber. These modules are commonly used for metro edge connectivity and regional interconnects between data centers within a metropolitan area. Compared to LR, ER optics require higher optical launch power, improved receiver sensitivity, and tighter dispersion control. Power consumption increases further due to the expanded optical budget and signal management requirements. ER modules remain primarily direct-detect designs but operate near the upper practical limits of that architecture.
-
-### `ZR`
-
-ZR modules are engineered for long-haul links of approximately 80 kilometers and are commonly deployed in Data Center Interconnect (DCI) applications. At this distance, direct-detect techniques are insufficient. ZR is defined as a coherent standard (e.g., OIF 400ZR), meaning the module uses coherent modulation with an integrated DSP engine capable of compensating for chromatic dispersion, polarization mode dispersion, and other long-distance impairments. These modules represent a significant increase in complexity and power consumption compared to SR–ER classes.
-
-### `ZR+` – Extended ZR (Coherent Extended Reach)
-
-ZR+ is an enhanced, often MSA-defined or vendor-extended version of ZR that supports distances beyond 80 kilometers, frequently ranging from 100 km to several hundred kilometers depending on system design. ZR+ modules are fully coherent pluggables with powerful DSP engines and advanced modulation formats (e.g., higher-order QAM). They are used in long-haul DCI and carrier-grade backbone networks. ZR+ optics consume the highest power among pluggable modules due to the complexity of coherent signal processing and extended optical budgets.
-
-## Optical Transceiver Naming
-
-Optical module names follow a standardized format:
-
-    [Speed] – [Reach Code][Lane Count]
-
-Each part of this name communicates important technical information about how the module operates.
-
-- **Speed** defines the total data rate (e.g., 100G, 400G, 800G).
-- **Reach Code** defines the supported distance and fiber type.
-- **Lane Count** defines how many independent optical channels are used to achieve the total speed.
-
-For example, `400G-DR4` means:
-
-- 400G → Total bandwidth of 400 gigabits per second
-- DR → Data Center Reach (single-mode fiber, ~500 meters)
-- 4 → Four optical lanes
-
-The lane count indicates how many independent optical channels carry the total bandwidth. Whether those channels travel on separate fibers or are wavelength-multiplexed onto a single fiber pair depends on the reach code (see [Bandwidth Scaling](03_README_fiber.md#bandwidth-scaling) for the underlying concepts):
-
-- **No suffix** (e.g., `100G-DR`, `100G-LR`): A single optical channel carries the full data rate over one fiber pair, terminated with a duplex LC connector.
-- **SR or DR with a lane suffix** (e.g., `100G-SR4`, `400G-DR4`): The module uses **parallel optics** — each channel is carried on a dedicated fiber. A 4-channel module requires 8 fibers (4 TX + 4 RX), an 8-channel module requires 16 fibers, and these are terminated with a multi-fiber MPO connector.
-- **FR, LR, or ER with a lane suffix** (e.g., `400G-FR4`, `100G-LR4`): The module uses **WDM** (Wavelength Division Multiplexing) — all channels are multiplexed onto a single fiber pair, terminated with a duplex LC connector.
-
-
 ## Breakout Cables
 
 [Port breakout](https://github.com/ManiAm/net-lab-switch-serdes/blob/master/docs/02_README_serdes.md#ports-and-breakout) splits a single high-speed port into multiple lower-speed logical interfaces by remapping the ASIC's SerDes lanes. From a cabling perspective, breakout determines which cables and connectors are needed to physically fan out the port. Whether the transceiver must be changed depends on the cabling architecture in use.
 
 Common breakout configurations and their typical cabling:
 
-| Source Port | Breakout | Lanes per Sub-Port | Typical Cable |
-| ----------- | -------- | ------------------ | ------------- |
-| 800G OSFP   | 8 × 100G | 1 lane @ 100G PAM4 | OSFP → 8×QSFP28 or 8×SFP112 |
-| 400G QSFP-DD| 4 × 100G | 2 lanes @ 50G PAM4 | QSFP-DD → 4×QSFP28 |
-| 100G QSFP28 | 4 × 25G  | 1 lane @ 25G NRZ   | QSFP28 → 4×SFP28 |
-| 40G QSFP+   | 4 × 10G  | 1 lane @ 10G NRZ   | QSFP+ → 4×SFP+ |
+| Source Port  | Breakout | Lanes per Sub-Port | Typical Cable |
+| -----------  | -------- | ------------------ | ------------- |
+| 800G OSFP    | 8 × 100G | 1 lane @ 100G PAM4 | OSFP → 8×QSFP28 or 8×SFP112 |
+| 400G QSFP-DD | 4 × 100G | 2 lanes @ 50G PAM4 | QSFP-DD → 4×QSFP28 |
+| 100G QSFP28  | 4 × 25G  | 1 lane @ 25G NRZ   | QSFP28 → 4×SFP28 |
+| 40G QSFP+    | 4 × 10G  | 1 lane @ 10G NRZ   | QSFP+ → 4×SFP+ |
 
 ### Scenario A: DAC (Direct Attach Copper)
 
@@ -316,54 +334,3 @@ Loopback modules are available for all standard form factors including SFP+, SFP
 - **R&D validation**: Verifying SerDes performance, power delivery, and thermal behavior across all ports under controlled conditions.
 - **Production testing**: Confirming that each port on a newly manufactured switch functions correctly before shipment.
 - **Field troubleshooting**: Isolating whether a link failure is caused by the local port, the remote port, or the cable between them.
-
-
-## Optical Integration Architectures
-
-The fundamental challenge in high-speed switch design is the physical distance between the ASIC and the optical transceiver. Electrical signals degrade rapidly at modern lane rates (50–200 Gb/s) as they travel across PCB traces, vias, and connectors. The longer this electrical path, the more signal integrity is lost to attenuation, reflections, and crosstalk.
-
-<img src="../pics/trace.png" alt="segment" width="450">
-
-Three architectural approaches address this problem, each trading off power, complexity, and serviceability differently.
-
-### NPO (Near-Package Optics)
-
-Near-Package Optics (NPO) is the conventional pluggable architecture used in most switches today. The optics remain in a front-panel pluggable module (such as QSFP-DD or OSFP), with the electrical path between the ASIC and module spanning 10–30 cm. To compensate for signal degradation over this distance, the module contains a **Digital Signal Processor (DSP)** that performs equalization, clock data recovery, and signal reshaping.
-
-<img src="../pics/NPO.jpg" alt="segment" width="650">
-
-- Signal path (Transmit): ASIC → SerDes → DSP → Driver → Optics → Fiber
-
-    On the transmit side, the switch `ASIC` generates high-speed electrical data streams, typically using PAM4 modulation. These signals are serialized by the `SerDes` and travel across the switch PCB to the pluggable optical module. The module's `DSP` performs equalization and signal conditioning to clean and reshape the waveform after its lossy journey across the board. After processing, the `Driver` converts the conditioned electrical signal into a precise modulation current that drives the optical components. The `Optics` (consisting of lasers and modulators) then converts the electrical signal into modulated light and transmits it over fiber.
-
-- Signal path (Receive): Fiber → Optics → TIA → DSP → SerDes → ASIC
-
-    On the receive side, incoming light from the fiber enters the optical front-end, where a photodetector converts optical energy into a very small electrical current. That current is amplified by a Transimpedance Amplifier (`TIA`), which converts the current into a usable voltage signal. The `DSP` then performs equalization, noise filtering, and clock data recovery to reconstruct a clean digital bitstream. Finally, the recovered signal is passed through the `SerDes` and delivered back to the `ASIC`.
-
-The following diagram shows the signal path in more detail:
-
-<img src="../pics/NPO_zoom.png" alt="segment" width="400">
-
-This architecture is DSP-intensive and consumes more power compared to linear designs, but it offers high tolerance to channel imperfections. Its primary advantages are robustness, flexibility, and interoperability — the DSP decouples the module's optical performance from the host platform's electrical channel quality, meaning the same module works reliably across different switch designs. This is why NPO remains the most widely deployed solution in high-speed networking systems today.
-
-### LPO (Linear Pluggable Optics)
-
-LPO retains the same pluggable form factor (the module is still inserted into a standard cage) but changes the internal architecture. Instead of relying on a heavy digital signal processor (DSP) inside the module, LPO uses a more direct, linear electrical path between the ASIC SerDes and the optical components. The module performs minimal signal correction, meaning the host system must provide a cleaner, well-conditioned electrical channel.
-
-<img src="../pics/LPO.jpg" alt="segment" width="650">
-
-- Signal path (Transmit): ASIC → SerDes → Driver + Linear Equalization → Optics → Fiber
-
-    On the transmit side, the ASIC generates high-speed PAM4 signals through its SerDes lanes, which are sent directly to the module's driver stage with only lightweight linear equalization. The driver converts the electrical signal into modulation current for the optical transmitter, which then launches the signal onto the fiber. Because no DSP reshaping occurs inside the module, signal integrity depends heavily on the quality of the PCB traces, connectors, and ASIC SerDes tuning.
-
-- Signal path (Receive): Fiber → Optics → TIA + Linear EQ → SerDes → ASIC
-
-    On the receive side, incoming optical signals are converted into electrical current by the photodetector. The TIA (Transimpedance Amplifier) amplifies this current and applies basic linear equalization before passing the signal directly to the ASIC's SerDes. Without DSP-based recovery inside the module, the ASIC must handle tighter signal margins and compensate for any remaining impairments.
-
-The primary advantage of LPO is reduced power consumption and lower latency compared to DSP-based pluggables. The tradeoff is increased sensitivity to system design including board layout, trace length, connector quality, SerDes calibration, and environmental stability. LPO is best suited for short-reach, high-density deployments such as AI fabrics, where power per port is critical and the cabling environment is tightly controlled.
-
-### CPO (Co-Packaged Optics)
-
-CPO moves optics from a removable front-panel module to optical engines placed adjacent to (or integrated with) the switch ASIC package. The electrical path between the SerDes and the optical engine becomes extremely short — millimeters instead of the 10–30 cm PCB runs in NPO — eliminating most of the signal integrity penalty associated with high-speed electrical lanes traversing long board traces and connectors.
-
-CPO offers the best path to higher bandwidth density and lower power per bit as lane rates scale beyond 200G. The trade-off is operational and manufacturing complexity. The pluggable serviceability model is lost: replacing a failed optical engine may require removing an engine assembly, a tray, or in some designs a larger portion of the system. CPO also introduces new challenges in thermal management, manufacturing yield, production test strategy, and field replaceability.
