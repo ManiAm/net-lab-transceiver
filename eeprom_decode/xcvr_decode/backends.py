@@ -130,9 +130,9 @@ def resolve_eeprom_path(
         raise EepromReadError(
             "Cannot detect SONiC platform. Use --eeprom-path, --i2c-bus, or DECODE_I2C_EEPROM_PATH."
         )
-    cfg = platforms.get(platform)
+    cfg = platforms.get(platform) or platforms.get("default")
     if not cfg:
-        known = ", ".join(sorted(platforms.keys())) or "(none)"
+        known = ", ".join(sorted(k for k in platforms.keys() if k != "default")) or "(none)"
         raise EepromReadError(
             f"No mapping for platform {platform!r} in xcvr_decode.yaml. "
             f"Known platforms: {known}. "

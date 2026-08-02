@@ -16,6 +16,8 @@ from .sff8636_bytemap import _addr_label
 Field = Tuple[int, int, str, Callable[[bytes], str]]
 Section = Tuple[str, List[Field]]
 
+_page_context: Dict[str, Any] = {}
+
 
 def _hex(b: bytes) -> str:
     return b.hex() if b else "(empty)"
@@ -132,7 +134,7 @@ def _media_type(b: bytes) -> str:
 
 def _app_advertising_block(b: bytes) -> str:
     """Decode up to 10 application advertising entries from 40 bytes."""
-    media_type = 0x03  # default copper; actual media type from byte 85 passed separately
+    media_type = _page_context.get("media_type", 0x00)
     lines = []
     for i in range(10):
         offset = i * 4
@@ -144,10 +146,17 @@ def _app_advertising_block(b: bytes) -> str:
         assign = b[offset + 3]
         if host_id == 0 and media_id == 0:
             break
+        if host_id == 0xFF:
+            break
         host_lane_count = (lanes >> 4) & 0x0F
         media_lane_count = lanes & 0x0F
         host_name = cmis.HOST_INTERFACE_ID.get(host_id, f"0x{host_id:02X}")
-        media_name = cmis.COPPER_MEDIA_INTERFACE_ID.get(media_id, f"0x{media_id:02X}")
+        if media_type == 0x03:
+            media_name = cmis.COPPER_MEDIA_INTERFACE_ID.get(media_id, f"0x{media_id:02X}")
+        elif media_type == 0x04:
+            media_name = cmis.ACTIVE_CABLE_MEDIA_INTERFACE_ID.get(media_id, f"0x{media_id:02X}")
+        else:
+            media_name = f"0x{media_id:02X}"
         lines.append(
             f"App {i+1}: {host_name} | "
             f"Host×{host_lane_count} Media×{media_lane_count} | "
@@ -265,8 +274,8 @@ LOWER_PAGE_SECTIONS: List[Section] = [
         (41, 43, "Inactive Firmware Version", _firmware_version),
     ]),
     ("Lane monitors (continued)", [
-        (43, 50, "RX input power (bytes 43–49)", _rx_power_4lanes),
-        (50, 78, "Extended lane monitors / reserved (bytes 50–77)", _hex),
+        (43, 51, "RX input power (bytes 43–50)", _rx_power_4lanes),
+        (51, 78, "Extended lane monitors / reserved (bytes 51–77)", _hex),
     ]),
     ("Module controls & active application", [
         (78, 79, "Module-level control", _module_controls),
@@ -379,6 +388,8 @@ def format_bytemap_cmis(raw: Dict[str, Any], meta: Dict[str, Any]) -> str:
 
     lower = raw["lower"]
     upper = raw["upper"]
+
+    _page_context["media_type"] = lower[85] if len(lower) > 85 else 0
 
     out.append(banner("Lower page  bytes 0–127"))
     out.extend(render_page_sections(lower, 0, LOWER_PAGE_SECTIONS))

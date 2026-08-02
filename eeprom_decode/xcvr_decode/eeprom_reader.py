@@ -104,10 +104,10 @@ class EepromReader:
 
 
 class SdkEepromReader:
-    """Read EEPROM via SONiC platform API (Mellanox SDK).
+    """Read EEPROM via SONiC platform API.
 
-    Used on platforms (e.g. Nvidia SN5600) where transceivers are not
-    exposed as sysfs I2C EEPROM files but accessed through the SDK.
+    Used on platforms where transceivers are not exposed as sysfs I2C
+    EEPROM files but accessed through the platform SDK.
     """
 
     PAGE_SIZE = 256
@@ -143,7 +143,7 @@ class SdkEepromReader:
         """Detect flat memory from EEPROM status bits.
 
         Also treats the module as flat if write_eeprom is unsupported
-        (common on Nvidia SDK platforms where writes always fail).
+        (common on SDK platforms where writes always fail).
         """
         if self._flat_memory is None:
             sfp = self._get_sfp()

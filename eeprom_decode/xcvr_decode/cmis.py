@@ -139,6 +139,10 @@ HOST_INTERFACE_ID = {
     0x4B: "400GBASE-CR2",
     0x4C: "800GBASE-CR4",
     0x4D: "1.6TBASE-CR8",
+    0x4E: "100GAUI-1 C2M (Annex 162E)",
+    0x4F: "200GAUI-2 C2M (Annex 162E)",
+    0x50: "400GAUI-4 C2M (Annex 162E)",
+    0x51: "800GAUI-8 C2M (Annex 162E)",
 }
 
 # ---------------------------------------------------------------------------
@@ -153,6 +157,17 @@ COPPER_MEDIA_INTERFACE_ID = {
     0x05: "Copper cable — far end retimed",
     0x06: "Copper cable — near and far end retimed",
     0x07: "Copper cable — linear active equalized",
+}
+
+# ---------------------------------------------------------------------------
+# Media Interface ID for active cable (media type 0x04)
+# ---------------------------------------------------------------------------
+ACTIVE_CABLE_MEDIA_INTERFACE_ID = {
+    0x00: "Undefined",
+    0x01: "Active cable, BER < 10^-12",
+    0x02: "Active cable, BER < 5×10^-5",
+    0x03: "Active cable, BER < 2.6×10^-4",
+    0x04: "Active cable, BER < 10^-6",
 }
 
 # ---------------------------------------------------------------------------
@@ -233,6 +248,8 @@ def decode_application(app_bytes: bytes, app_num: int, media_type: int) -> Optio
 
     if media_type == 0x03:
         media_name = COPPER_MEDIA_INTERFACE_ID.get(media_id, f"Unknown (0x{media_id:02X})")
+    elif media_type == 0x04:
+        media_name = ACTIVE_CABLE_MEDIA_INTERFACE_ID.get(media_id, f"Unknown (0x{media_id:02X})")
     else:
         media_name = f"0x{media_id:02X}"
 

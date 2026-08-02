@@ -7,7 +7,7 @@ Read and decode transceiver EEPROM — supports **CMIS** (QSFP-DD / OSFP), **SFF
 - Python 3.8+
 - One of:
   - Linux sysfs EEPROM access (`optoe` / `at24` at **0x50**)
-  - SONiC platform SDK (Nvidia/Mellanox SN-series, others)
+  - SONiC platform SDK
 - On SONiC, run with **`sudo`**: upper pages need **write** access for page select (byte 127).
 
 ## Usage
@@ -69,7 +69,7 @@ platforms:
     port_index: "eth//4"
     eeprom_template: "/sys/bus/i2c/devices/i2c-{bus}/{bus}-0050/eeprom"
 
-  x86_64-nvidia_sn5600-r0:
+  default:
     backend: sdk
     port_index: "eth//8"
     sfp_index_offset: 1
@@ -84,12 +84,12 @@ Resolution order:
 
 ## What is decoded
 
-| Standard | Identifiers | Output |
-|----------|-------------|--------|
+| Standard         | Identifiers                                 | Output |
+|------------------|---------------------------------------------|--------|
 | **CMIS 4.x/5.x** | QSFP-DD (0x18), OSFP-8X (0x19), OSFP (0x1E) | Module info, live temp/voltage/per-lane DOM, firmware, app advertising |
-| **SFF-8636** | QSFP (0x0C), QSFP+ (0x0D), QSFP28 (0x11) | Byte-map + per-lane DOM table + thresholds (page 03h) |
-| **SFF-8472** | SFP (0x03) | A0h identification fields |
-| Unknown | Any other | Hex dump + note |
+| **SFF-8636**     | QSFP (0x0C), QSFP+ (0x0D), QSFP28 (0x11)    | Byte-map + per-lane DOM table + thresholds (page 03h) |
+| **SFF-8472**     | SFP (0x03)                                  | A0h identification fields |
+| Unknown          | Any other                                   | Hex dump + note |
 
 ## Design principles
 

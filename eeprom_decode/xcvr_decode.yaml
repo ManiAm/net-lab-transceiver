@@ -14,7 +14,7 @@ platforms:
     port_index: "eth//4"
     eeprom_template: "/sys/bus/i2c/devices/i2c-{bus}/{bus}-0050/eeprom"
 
-  x86_64-nvidia_sn5600-r0:
+  default:
     backend: sdk
     port_index: "eth//8"
     sfp_index_offset: 1
